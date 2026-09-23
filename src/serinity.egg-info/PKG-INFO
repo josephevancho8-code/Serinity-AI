@@ -1,0 +1,5 @@
+Metadata-Version: 2.4
+Name: serinity
+Version: 0.1.0
+Summary: Autonomous, deterministic local AI assistant
+Requires-Python: >=3.10

@@ -1,0 +1,22 @@
+# Virtual Environments
+venv/
+env/
+.venv/
+
+# Python Bytecode & Cache
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Test Coverage
+.coverage
+coverage.xml
+htmlcov/
+
+# OS / IDE
+.DS_Store
+.vscode/
+.idea/
