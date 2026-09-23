@@ -43,7 +43,13 @@ class SerinityAgent:
             "message": f"Action '{action}' is permitted.",
         }
 
-    def process_message(self, user_input: str, history_limit: int = 10, auto_execute_tools: bool = True) -> str:
+    def process_message(
+        self,
+        user_input: str,
+        history_limit: int = 10,
+        auto_execute_tools: bool = True,
+        max_steps: int = 3,
+    ) -> str:
         if not self.policy.is_allowed("conversation"):
             return "Security Policy Block: Conversation capability is currently disabled."
 
@@ -53,25 +59,28 @@ class SerinityAgent:
         messages = [{"role": "system", "content": self.SYSTEM_PROMPT}]
         messages.extend(history)
 
-        assistant_response = self.model.chat(messages)
+        step = 0
+        while step < max_steps:
+            assistant_response = self.model.chat(messages)
 
-        # Autonomous Multi-Turn Tool Loop
-        if auto_execute_tools and "```python" in assistant_response:
+            if not auto_execute_tools or "```python" not in assistant_response:
+                # No tool needed or tools disabled; return current completion
+                break
+
             code_matches = re.findall(r"```python\s*(.*?)\s*```", assistant_response, re.DOTALL)
-            if code_matches:
-                code_to_run = code_matches[0].strip()
-                tool_result = self.run_tool("python_sandbox", code=code_to_run)
-                output = tool_result.get("stdout") or tool_result.get("error") or tool_result.get("stderr")
+            if not code_matches:
+                break
 
-                # Feed output back into conversation context for natural synthesis
-                synthesis_messages = messages + [
-                    {"role": "assistant", "content": assistant_response},
-                    {
-                        "role": "user",
-                        "content": f"[System Tool Output]: {output}\nProvide a concise final answer based on this result.",
-                    },
-                ]
-                assistant_response = self.model.chat(synthesis_messages)
+            code_to_run = code_matches[0].strip()
+            tool_result = self.run_tool("python_sandbox", code=code_to_run)
+            output = tool_result.get("stdout") or tool_result.get("error") or tool_result.get("stderr")
+
+            messages.append({"role": "assistant", "content": assistant_response})
+            messages.append({
+                "role": "user",
+                "content": f"[System Tool Output]: {output}\nContinue solving or provide final result.",
+            })
+            step += 1
 
         self.memory.add_message("assistant", assistant_response)
         return assistant_response
