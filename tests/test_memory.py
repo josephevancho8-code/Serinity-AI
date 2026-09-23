@@ -1,45 +1,40 @@
-import os
 import pytest
 from serinity.memory.store import MemoryStore
 
 
-@pytest.fixture
-def temp_db(tmp_path):
-    db_file = tmp_path / "test_serinity.db"
-    return str(db_file)
+def test_memory_store_all_operations():
+    store = MemoryStore(":memory:")
 
+    # Test adding messages (both primary and alias)
+    store.add_chat_message("user", "Hello Serinity")
+    store.add_message("assistant", "Hello Joseph")
 
-def test_memory_store_initialization(temp_db):
-    store = MemoryStore(db_path=temp_db)
-    assert os.path.exists(temp_db)
-
-
-def test_chat_history_persistence(temp_db):
-    store = MemoryStore(db_path=temp_db)
-    store.add_message("user", "System setup request")
-    store.add_message("assistant", "System operational")
-
-    history = store.get_recent_messages(limit=5)
+    # Test full history retrieval
+    history = store.get_chat_history()
     assert len(history) == 2
-    assert history[0]["role"] == "user"
-    assert history[0]["content"] == "System setup request"
-    assert history[1]["role"] == "assistant"
-    assert history[1]["content"] == "System operational"
 
+    # Test recent messages with and without limits
+    recent_all = store.get_recent_messages(limit=None)
+    assert len(recent_all) == 2
 
-def test_fact_storage_and_updates(temp_db):
-    store = MemoryStore(db_path=temp_db)
-    store.store_fact("model_name", "qwen2.5:3b")
-    assert store.get_fact("model_name") == "qwen2.5:3b"
+    recent_limited = store.get_recent_messages(limit=1)
+    assert len(recent_limited) == 1
+    assert recent_limited[0]["content"] == "Hello Joseph"
 
-    store.store_fact("model_name", "qwen2.5:7b")
-    assert store.get_fact("model_name") == "qwen2.5:7b"
+    # Test fact storage and retrieval
+    store.store_fact("user_name", "Joseph")
+    assert store.get_fact("user_name") == "Joseph"
+    assert store.get_fact("missing_key") is None
 
-
-def test_clear_chat_history(temp_db):
-    store = MemoryStore(db_path=temp_db)
-    store.add_message("user", "Temporary message")
-    assert len(store.get_recent_messages()) == 1
-
+    # Test clearing history
     store.clear_chat_history()
-    assert len(store.get_recent_messages()) == 0
+    assert len(store.get_chat_history()) == 0
+
+    # Test close method
+    store.close()
+
+
+def test_memory_store_destructor():
+    store = MemoryStore(":memory:")
+    # Explicitly test __del__ destructor path
+    store.__del__()

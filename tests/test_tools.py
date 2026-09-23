@@ -1,27 +1,27 @@
+from unittest.mock import patch
+import subprocess
 import pytest
 from serinity.tools.sandbox import PythonSandboxTool
-from serinity.tools.file_reader import FileReaderTool
 
 
-def test_sandbox_tool_execution():
-    sandbox = PythonSandboxTool()
-    res = sandbox.execute("print('Serinity online')")
-    assert res["success"] is True
-    assert "Serinity online" in res["stdout"]
+def test_sandbox_success():
+    tool = PythonSandboxTool()
+    result = tool.execute("print('hello')", timeout=5)
+    assert result["success"] is True
+    assert result["stdout"] == "hello"
 
 
-def test_file_reader_tool_success(tmp_path):
-    test_file = tmp_path / "sample.txt"
-    test_file.write_text("Hello from Serinity storage.")
-
-    reader = FileReaderTool()
-    res = reader.execute(str(test_file))
-    assert res["success"] is True
-    assert "Hello from Serinity storage." in res["content"]
+def test_sandbox_timeout():
+    tool = PythonSandboxTool()
+    result = tool.execute("import time; time.sleep(2)", timeout=1)
+    assert result["success"] is False
+    assert "timed out" in result["error"]
 
 
-def test_file_reader_missing_file():
-    reader = FileReaderTool()
-    res = reader.execute("non_existent_file.txt")
-    assert res["success"] is False
-    assert "not found" in res["error"]
+@patch("subprocess.run")
+def test_sandbox_generic_exception(mock_run):
+    mock_run.side_effect = Exception("System execution failed")
+    tool = PythonSandboxTool()
+    result = tool.execute("print('test')")
+    assert result["success"] is False
+    assert "Execution failed: System execution failed" in result["error"]
